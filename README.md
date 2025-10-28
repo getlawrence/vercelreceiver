@@ -15,27 +15,59 @@ This receiver accepts logs, traces, speed insights, and web analytics data from 
 
 ## Configuration
 
+### Basic Configuration
+
+The receiver uses a single HTTP server for all data types:
+
 ```yaml
 receivers:
   vercel:
+    endpoint: "0.0.0.0:8080"  # Single endpoint for all drain types
+    secret: "your-secret-key"  # Default secret for all endpoints
+```
+
+### Advanced Configuration
+
+You can customize routes and secrets per signal type:
+
+```yaml
+receivers:
+  vercel:
+    endpoint: "0.0.0.0:8080"
+    secret: "default-secret-key"  # Default secret for all endpoints
+
+    # Optional per-signal overrides
     logs:
-      endpoint: "0.0.0.0:8080"
-      secret: "your-secret-key"
+      route: "/custom-logs"      # Override default /logs route
+      secret: "logs-secret"       # Override default secret for logs only
+
     traces:
-      endpoint: "0.0.0.0:8081"
-      secret: "your-secret-key"
+      route: "/custom-traces"     # Override default /traces route
+
     speed_insights:
-      endpoint: "0.0.0.0:8082"
-      secret: "your-secret-key"
+      secret: "metrics-secret"    # Override secret only (keeps default /speed-insights route)
+
     web_analytics:
-      endpoint: "0.0.0.0:8083"
-      secret: "your-secret-key"
+      # Uses defaults: route=/analytics, secret from top-level
 ```
 
 ### Configuration Fields
 
-- `endpoint` (optional): Host and port to listen on (default: `:8080`)
-- `secret` (optional): Secret for x-vercel-signature header verification. If not provided, signature verification is disabled.
+#### Top-Level Fields
+
+- `endpoint` (optional): Host and port to listen on. Default: `:8080`
+- `secret` (optional): Default secret for x-vercel-signature header verification. If not provided, signature verification is disabled for all endpoints unless overridden per signal.
+
+#### Per-Signal Fields (logs, traces, speed_insights, web_analytics)
+
+Each signal type supports optional overrides:
+
+- `route` (optional): Custom HTTP route for this signal type. If not provided, defaults are:
+  - Logs: `/logs`
+  - Traces: `/traces`
+  - Speed Insights: `/speed-insights`
+  - Web Analytics: `/analytics`
+- `secret` (optional): Secret specific to this signal type. Overrides the top-level `secret` if provided.
 
 ## Endpoints
 
@@ -182,7 +214,7 @@ curl -X POST http://localhost:8080/logs \
 ### Test Traces Endpoint
 
 ```bash
-curl -X POST http://localhost:8081/traces \
+curl -X POST http://localhost:8080/traces \
   -H "Content-Type: application/json" \
   -H "x-vercel-signature: your-signature" \
   -d '{
@@ -203,7 +235,7 @@ curl -X POST http://localhost:8081/traces \
 ### Test Speed Insights Endpoint
 
 ```bash
-curl -X POST http://localhost:8082/speed-insights \
+curl -X POST http://localhost:8080/speed-insights \
   -H "Content-Type: application/json" \
   -H "x-vercel-signature: your-signature" \
   -d '[{
@@ -216,12 +248,69 @@ curl -X POST http://localhost:8082/speed-insights \
 
 ## Architecture
 
-The receiver consists of:
+The receiver uses a unified architecture:
 
-- **HTTP Server**: Manages all endpoints and routing
-- **Authentication**: Signature verification middleware
-- **Receivers**: Separate receivers for logs, traces, metrics, and analytics
+- **Single HTTP Server**: Manages all endpoints on one port (default :8080)
+- **Shared Receiver**: One receiver instance handles all signal types (logs, traces, metrics, analytics)
+- **Authentication**: Signature verification with default secret and per-signal overrides
+- **Flexible Routing**: Configurable routes per signal type with sensible defaults
 - **Schema Conversion**: Converts Vercel data formats to OpenTelemetry data models
+
+## Example Configurations
+
+### Minimal Setup (No Authentication)
+
+```yaml
+receivers:
+  vercel:
+    # Uses all defaults: endpoint :8080, no authentication, default routes
+```
+
+### Simple Setup (One Secret for All)
+
+```yaml
+receivers:
+  vercel:
+    endpoint: "0.0.0.0:8080"
+    secret: "my-shared-secret"
+```
+
+### Per-Environment Secrets
+
+```yaml
+receivers:
+  vercel:
+    endpoint: "0.0.0.0:8080"
+    secret: "default-secret"
+
+    logs:
+      secret: "logs-only-secret"
+
+    traces:
+      secret: "traces-only-secret"
+```
+
+### Custom Routes with Authentication
+
+```yaml
+receivers:
+  vercel:
+    endpoint: "0.0.0.0:8080"
+    secret: "shared-secret"
+
+    logs:
+      route: "/v1/logs"
+
+    traces:
+      route: "/v1/traces"
+      secret: "traces-specific-secret"
+
+    speed_insights:
+      route: "/v1/metrics"
+
+    web_analytics:
+      route: "/v1/analytics"
+```
 
 ## License
 
