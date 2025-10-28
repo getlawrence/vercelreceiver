@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 )
@@ -67,9 +68,7 @@ func generateSignature(secret, body []byte) string {
 func FuzzHandleLogs(f *testing.F) {
 	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/logs", bytes.NewReader(reqBody))
-		if err != nil {
-			t.Skip()
-		}
+		require.NoError(t, err)
 
 		secret := "test-secret"
 		signature := generateSignature([]byte(secret), reqBody)
@@ -96,10 +95,7 @@ func FuzzHandleLogs(f *testing.F) {
 func FuzzHandleTraces(f *testing.F) {
 	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/traces", bytes.NewReader(reqBody))
-		if err != nil {
-			t.Skip()
-		}
-
+		require.NoError(t, err)
 		secret := "test-secret"
 		signature := generateSignature([]byte(secret), reqBody)
 		req.Header.Add(xVercelSignatureHeader, signature)
@@ -125,9 +121,7 @@ func FuzzHandleTraces(f *testing.F) {
 func FuzzHandleSpeedInsights(f *testing.F) {
 	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/speed-insights", bytes.NewReader(reqBody))
-		if err != nil {
-			t.Skip()
-		}
+		require.NoError(t, err)
 
 		secret := "test-secret"
 		signature := generateSignature([]byte(secret), reqBody)
@@ -154,9 +148,7 @@ func FuzzHandleSpeedInsights(f *testing.F) {
 func FuzzHandleWebAnalytics(f *testing.F) {
 	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
 		req, err := http.NewRequest(http.MethodPost, "http://example.com/analytics", bytes.NewReader(reqBody))
-		if err != nil {
-			t.Skip()
-		}
+		require.NoError(t, err)
 
 		secret := "test-secret"
 		signature := generateSignature([]byte(secret), reqBody)

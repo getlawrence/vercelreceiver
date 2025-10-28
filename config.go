@@ -97,7 +97,11 @@ func validateEndpoint(endpoint string) error {
 	}
 
 	if host == "" {
-		return fmt.Errorf("host cannot be empty")
+		// Empty host is valid for Go net.Listen (means listen on all interfaces)
+		// Only reject if both host and port are empty
+		if port == "" {
+			return fmt.Errorf("host cannot be empty when port is also empty")
+		}
 	}
 
 	if port == "" {

@@ -4,10 +4,8 @@ package vercelreceiver
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -21,8 +19,6 @@ import (
 	"go.opentelemetry.io/collector/receiver/receivertest"
 )
 
-const testSecret = "test-secret-12345"
-
 // getAvailableLocalAddress returns an available local address with a free port
 func getAvailableLocalAddress(t *testing.T) string {
 	t.Helper()
@@ -30,13 +26,6 @@ func getAvailableLocalAddress(t *testing.T) string {
 	require.NoError(t, err)
 	defer addr.Close()
 	return addr.Addr().String()
-}
-
-// Helper function to create a valid signature
-func createSignature(secret []byte, body []byte) string {
-	mac := hmac.New(sha256.New, secret)
-	mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func TestLogsReceiverIntegration(t *testing.T) {
@@ -49,9 +38,9 @@ func TestLogsReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
+			Endpoint: testAddr,
 			Logs: SignalConfig{
-				Endpoint: testAddr,
-				Secret:   testSecret,
+				Secret: testSecret,
 			},
 		},
 		sink,
@@ -126,9 +115,9 @@ func TestTracesReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
+			Endpoint: testAddr,
 			Traces: SignalConfig{
-				Endpoint: testAddr,
-				Secret:   testSecret,
+				Secret: testSecret,
 			},
 		},
 		sink,
@@ -163,8 +152,21 @@ func TestTracesReceiverIntegration(t *testing.T) {
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Debug: Read response body to see error details
+	body, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
+	require.NoError(t, err)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Logf("Response status: %d", resp.StatusCode)
+		t.Logf("Response body: %s", string(body))
+		t.Logf("Request URL: %s", req.URL.String())
+		t.Logf("Request headers: %v", req.Header)
+		t.Logf("Payload: %s", string(payload))
+	}
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Wait for traces to be consumed
 	require.Eventually(t, func() bool {
@@ -185,9 +187,9 @@ func TestSpeedInsightsReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
+			Endpoint: testAddr,
 			SpeedInsights: SignalConfig{
-				Endpoint: testAddr,
-				Secret:   testSecret,
+				Secret: testSecret,
 			},
 		},
 		sink,
@@ -244,9 +246,9 @@ func TestWebAnalyticsReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
+			Endpoint: testAddr,
 			WebAnalytics: SignalConfig{
-				Endpoint: testAddr,
-				Secret:   testSecret,
+				Secret: testSecret,
 			},
 		},
 		sink,
@@ -304,9 +306,9 @@ func TestNoSecretValidation(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
+			Endpoint: testAddr,
 			Logs: SignalConfig{
-				Endpoint: testAddr,
-				Secret:   "", // No secret
+				Secret: "", // No secret
 			},
 		},
 		sink,

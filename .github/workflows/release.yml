@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
+      
+    - name: Run tests
+      run: go test -v -race ./...
+      
+    - name: Run integration tests
+      run: go test -v -tags=integration ./...
+      
+    - name: Build for multiple platforms
+      run: |
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o vercelreceiver-linux-amd64 ./...
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o vercelreceiver-linux-arm64 ./...
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o vercelreceiver-darwin-amd64 ./...
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o vercelreceiver-darwin-arm64 ./...
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o vercelreceiver-windows-amd64.exe ./...
+        GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o vercelreceiver-windows-arm64.exe ./...
+        
+    - name: Create checksums
+      run: |
+        sha256sum vercelreceiver-linux-amd64 > vercelreceiver-linux-amd64.sha256
+        sha256sum vercelreceiver-linux-arm64 > vercelreceiver-linux-arm64.sha256
+        sha256sum vercelreceiver-darwin-amd64 > vercelreceiver-darwin-amd64.sha256
+        sha256sum vercelreceiver-darwin-arm64 > vercelreceiver-darwin-arm64.sha256
+        sha256sum vercelreceiver-windows-amd64.exe > vercelreceiver-windows-amd64.exe.sha256
+        sha256sum vercelreceiver-windows-arm64.exe > vercelreceiver-windows-arm64.exe.sha256
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          vercelreceiver-linux-amd64
+          vercelreceiver-linux-amd64.sha256
+          vercelreceiver-linux-arm64
+          vercelreceiver-linux-arm64.sha256
+          vercelreceiver-darwin-amd64
+          vercelreceiver-darwin-amd64.sha256
+          vercelreceiver-darwin-arm64
+          vercelreceiver-darwin-arm64.sha256
+          vercelreceiver-windows-amd64.exe
+          vercelreceiver-windows-amd64.exe.sha256
+          vercelreceiver-windows-arm64.exe
+          vercelreceiver-windows-arm64.exe.sha256
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+        
+    - name: Publish to Go Package Registry
+      run: |
+        # Configure git for Go modules
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+        # Create a temporary directory for the Go module
+        mkdir -p /tmp/go-package
+        
+        # Copy the module files
+        cp go.mod go.sum /tmp/go-package/
+        cp -r *.go /tmp/go-package/
+        cp -r testdata /tmp/go-package/ 2>/dev/null || true
+        
+        cd /tmp/go-package
+        
+        # Update the module version to match the tag
+        TAG_VERSION=${GITHUB_REF#refs/tags/}
+        go mod edit -module=github.com/getlawrence/vercelreceiver@$TAG_VERSION
+        
+        # Initialize git repository for the package
+        git init
+        git add .
+        git commit -m "Release $TAG_VERSION"
+        git tag $TAG_VERSION
+        
+        # Push to GitHub (this will make it available via go get)
+        git remote add origin https://github.com/getlawrence/vercelreceiver.git
+        git push origin $TAG_VERSION --force
+        
+    - name: Verify Go Package Installation
+      run: |
+        TAG_VERSION=${GITHUB_REF#refs/tags/}
+        echo "Testing Go package installation for version: $TAG_VERSION"
+        
+        # Test that the package can be installed
+        go install github.com/getlawrence/vercelreceiver@$TAG_VERSION
+        
+        # Verify the binary was created
+        if command -v vercelreceiver &> /dev/null; then
+          echo "✅ Package installed successfully"
+          vercelreceiver --version || echo "Binary created but no version flag"
+        else
+          echo "❌ Package installation failed"
+          exit 1
+        fi
