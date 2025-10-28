@@ -1,0 +1,22 @@
+receivers:
+  vercel:
+    endpoint: 0.0.0.0:8081
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    logs:
+      receivers: [vercel]
+      processors: []
+      exporters: [debug]
+    traces:
+      receivers: [vercel]
+      processors: []
+      exporters: [debug]
+    metrics:
+      receivers: [vercel]
+      processors: []
+      exporters: [debug]

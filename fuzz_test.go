@@ -18,9 +18,12 @@ import (
 func newTestLogsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 	logsConsumer := &consumertest.LogsSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newVercelReceiver(params, cfg, logsConsumer, nil, nil)
+	r, err := newVercelReceiver(params, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create logs receiver: %v", err)
+	}
+	if err := r.RegisterLogsConsumer(logsConsumer, params); err != nil {
+		t.Fatalf("Failed to register logs consumer: %v", err)
 	}
 	return r
 }
@@ -29,10 +32,12 @@ func newTestLogsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 func newTestTracesReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 	tracesConsumer := &consumertest.TracesSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newVercelReceiver(params, cfg, nil, tracesConsumer, nil)
+	r, err := newVercelReceiver(params, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create traces receiver: %v", err)
 	}
+	r.tracesConsumer = tracesConsumer
+	r.server.tracesHandler = r.handleTraces
 	return r
 }
 
@@ -40,9 +45,12 @@ func newTestTracesReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 func newTestMetricsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 	metricsConsumer := &consumertest.MetricsSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newVercelReceiver(params, cfg, nil, nil, metricsConsumer)
+	r, err := newVercelReceiver(params, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create metrics receiver: %v", err)
+	}
+	if err := r.RegisterMetricsConsumer(metricsConsumer, params); err != nil {
+		t.Fatalf("Failed to register metrics consumer: %v", err)
 	}
 	return r
 }
@@ -51,9 +59,12 @@ func newTestMetricsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 func newTestWebAnalyticsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
 	logsConsumer := &consumertest.LogsSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newVercelReceiver(params, cfg, logsConsumer, nil, nil)
+	r, err := newVercelReceiver(params, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create web analytics receiver: %v", err)
+	}
+	if err := r.RegisterLogsConsumer(logsConsumer, params); err != nil {
+		t.Fatalf("Failed to register logs consumer: %v", err)
 	}
 	return r
 }
