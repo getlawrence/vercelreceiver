@@ -1,0 +1,197 @@
+package vercelreceiver
+
+import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/receiver/receivertest"
+)
+
+// Helper function to create a test receiver with logs consumer
+func newTestLogsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	logsConsumer := &consumertest.LogsSink{}
+	params := receivertest.NewNopSettings(Type)
+	r, err := newVercelReceiver(params, cfg, logsConsumer, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create logs receiver: %v", err)
+	}
+	return r
+}
+
+// Helper function to create a test receiver with traces consumer
+func newTestTracesReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	tracesConsumer := &consumertest.TracesSink{}
+	params := receivertest.NewNopSettings(Type)
+	r, err := newVercelReceiver(params, cfg, nil, tracesConsumer, nil)
+	if err != nil {
+		t.Fatalf("Failed to create traces receiver: %v", err)
+	}
+	return r
+}
+
+// Helper function to create a test receiver with metrics consumer
+func newTestMetricsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	metricsConsumer := &consumertest.MetricsSink{}
+	params := receivertest.NewNopSettings(Type)
+	r, err := newVercelReceiver(params, cfg, nil, nil, metricsConsumer)
+	if err != nil {
+		t.Fatalf("Failed to create metrics receiver: %v", err)
+	}
+	return r
+}
+
+// Helper function to create a test receiver with web analytics consumer
+func newTestWebAnalyticsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	logsConsumer := &consumertest.LogsSink{}
+	params := receivertest.NewNopSettings(Type)
+	r, err := newVercelReceiver(params, cfg, logsConsumer, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create web analytics receiver: %v", err)
+	}
+	return r
+}
+
+// Helper function to generate a valid signature for the given secret and body
+func generateSignature(secret, body []byte) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func FuzzHandleLogs(f *testing.F) {
+	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/logs", bytes.NewReader(reqBody))
+		if err != nil {
+			t.Skip()
+		}
+
+		secret := "test-secret"
+		signature := generateSignature([]byte(secret), reqBody)
+		req.Header.Add(xVercelSignatureHeader, signature)
+		req.Header.Add("Content-Type", "application/json")
+
+		if gZip {
+			req.Header.Add("Content-Encoding", "gzip")
+		}
+
+		cfg := &Config{
+			Endpoint: "localhost:0",
+			Logs: SignalConfig{
+				Secret: secret,
+			},
+		}
+
+		r := newTestLogsReceiver(t, cfg)
+		rec := httptest.NewRecorder()
+		r.handleLogs(rec, req)
+	})
+}
+
+func FuzzHandleTraces(f *testing.F) {
+	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/traces", bytes.NewReader(reqBody))
+		if err != nil {
+			t.Skip()
+		}
+
+		secret := "test-secret"
+		signature := generateSignature([]byte(secret), reqBody)
+		req.Header.Add(xVercelSignatureHeader, signature)
+		req.Header.Add("Content-Type", "application/json")
+
+		if gZip {
+			req.Header.Add("Content-Encoding", "gzip")
+		}
+
+		cfg := &Config{
+			Endpoint: "localhost:0",
+			Traces: SignalConfig{
+				Secret: secret,
+			},
+		}
+
+		r := newTestTracesReceiver(t, cfg)
+		rec := httptest.NewRecorder()
+		r.handleTraces(rec, req)
+	})
+}
+
+func FuzzHandleSpeedInsights(f *testing.F) {
+	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/speed-insights", bytes.NewReader(reqBody))
+		if err != nil {
+			t.Skip()
+		}
+
+		secret := "test-secret"
+		signature := generateSignature([]byte(secret), reqBody)
+		req.Header.Add(xVercelSignatureHeader, signature)
+		req.Header.Add("Content-Type", "application/json")
+
+		if gZip {
+			req.Header.Add("Content-Encoding", "gzip")
+		}
+
+		cfg := &Config{
+			Endpoint: "localhost:0",
+			SpeedInsights: SignalConfig{
+				Secret: secret,
+			},
+		}
+
+		r := newTestMetricsReceiver(t, cfg)
+		rec := httptest.NewRecorder()
+		r.handleSpeedInsights(rec, req)
+	})
+}
+
+func FuzzHandleWebAnalytics(f *testing.F) {
+	f.Fuzz(func(t *testing.T, reqBody []byte, gZip bool) {
+		req, err := http.NewRequest(http.MethodPost, "http://example.com/analytics", bytes.NewReader(reqBody))
+		if err != nil {
+			t.Skip()
+		}
+
+		secret := "test-secret"
+		signature := generateSignature([]byte(secret), reqBody)
+		req.Header.Add(xVercelSignatureHeader, signature)
+		req.Header.Add("Content-Type", "application/json")
+
+		if gZip {
+			req.Header.Add("Content-Encoding", "gzip")
+		}
+
+		cfg := &Config{
+			Endpoint: "localhost:0",
+			WebAnalytics: SignalConfig{
+				Secret: secret,
+			},
+		}
+
+		r := newTestWebAnalyticsReceiver(t, cfg)
+		rec := httptest.NewRecorder()
+		r.handleWebAnalytics(rec, req)
+	})
+}
+
+// Fuzz test for signature verification
+func FuzzVerifySignature(f *testing.F) {
+	f.Fuzz(func(t *testing.T, secret []byte, body []byte, signature string) {
+		// Test signature verification with various inputs
+		verifySignature(secret, body, signature)
+	})
+}
+
+// Fuzz test for endpoint validation
+func FuzzValidateEndpoint(f *testing.F) {
+	f.Fuzz(func(t *testing.T, endpoint string) {
+		// Test endpoint validation with various inputs
+		_ = validateEndpoint(endpoint) // intentionally ignore error for fuzz testing
+	})
+}

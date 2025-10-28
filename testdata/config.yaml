@@ -1,0 +1,16 @@
+vercel:
+  endpoint: 0.0.0.0:12345
+  secret: 1234567890abcdef1234567890abcdef
+
+  # Optional per-signal overrides
+  logs:
+    # Uses default route /logs and secret from top-level
+
+  traces:
+    # Uses default route /traces and secret from top-level
+
+  speed_insights:
+    # Uses default route /speed-insights and secret from top-level
+
+  web_analytics:
+    # Uses default route /analytics and secret from top-level
