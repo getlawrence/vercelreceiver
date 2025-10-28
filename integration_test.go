@@ -4,9 +4,6 @@ package vercelreceiver
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"net/http"

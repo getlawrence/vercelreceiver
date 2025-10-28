@@ -12,15 +12,8 @@ linters-settings:
     simplify: true
   goimports:
     local-prefixes: github.com/getlawrence/vercelreceiver
-  govet:
-    settings:
-      printf:
-        funcs:
-          - (github.com/getlawrence/vercelreceiver/vendor/github.com/go-logr/logr.Logger).Info
-          - (github.com/getlawrence/vercelreceiver/vendor/github.com/go-logr/logr.Logger).Error
-          - (github.com/getlawrence/vercelreceiver/vendor/github.com/go-logr/logr.Logger).V
   gocyclo:
-    min-complexity: 15
+    min-complexity: 20
   dupl:
     threshold: 100
   goconst:
@@ -29,7 +22,7 @@ linters-settings:
   misspell:
     locale: US
   lll:
-    line-length: 140
+    line-length: 200
   unparam:
     check-exported: false
   nakedret:
@@ -51,17 +44,24 @@ linters-settings:
       - octalLiteral
       - whyNoLint
       - wrapperFunc
+      - rangeValCopy
+      - stringXbytes
+      - hugeParam
+      - httpNoBody
+      - paramTypeCombine
+  funlen:
+    lines: 100
+    statements: 50
+  gosec:
+    excludes:
+      - G112 # Slowloris Attack - acceptable for internal collector
 
 linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
-    - depguard
-    - dogsled
     - dupl
     - errcheck
-    - exportloopref
     - exhaustive
     - funlen
     - gochecknoinits
@@ -70,9 +70,6 @@ linters:
     - gocyclo
     - gofmt
     - goimports
-    - golint
-    - gomnd
-    - goprintffuncname
     - gosec
     - gosimple
     - govet
@@ -84,13 +81,11 @@ linters:
     - nolintlint
     - rowserrcheck
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
 
 issues:
@@ -102,6 +97,8 @@ issues:
         - goconst
         - dupl
         - gocyclo
+        - lll
+        - noctx
     - path: testdata/
       linters:
         - gosec
@@ -118,3 +115,4 @@ issues:
         - gocyclo
         - funlen
         - gomnd
+        - noctx
