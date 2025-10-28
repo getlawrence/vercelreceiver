@@ -8,6 +8,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/receiver/receiverhelper"
@@ -80,6 +81,15 @@ func (r *tracesReceiver) handleTraces(w http.ResponseWriter, req *http.Request) 
 	}
 	req.Body.Close()
 
+	// Verify signature if secret is configured (for tests that call handler directly)
+	if r.server.cfg.Traces.Secret != "" {
+		if err := verifyRequest(req, r.server.cfg.Traces.Secret, bodyBytes); err != nil {
+			r.logger.Warn("Signature verification failed", zap.Error(err))
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	// Determine format from Content-Type header
 	contentType := req.Header.Get("Content-Type")
 
@@ -110,7 +120,13 @@ func (r *tracesReceiver) handleTraces(w http.ResponseWriter, req *http.Request) 
 		spans := traces.SpanCount()
 		r.obsrecv.EndTracesOp(obsCtx, Type.String(), spans, err)
 		r.logger.Error("Failed to consume traces", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+
+		// Check if it's a permanent error (should return 400)
+		if consumererror.IsPermanent(err) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+		} else {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 

@@ -1,9 +1,3 @@
-//go:build !integration
-
-// Copyright The OpenTelemetry Authors
-
-// SPDX-License-Identifier: Apache-2.0
-
 package vercelreceiver
 
 import (
@@ -305,6 +299,7 @@ func TestHandleLogs(t *testing.T) {
 		permanentFailure   bool
 		expectedStatusCode int
 		logExpected        bool
+		addSignature       bool // whether to actually add signature to request
 	}{
 		{
 			name:               "missing signature",
@@ -313,6 +308,7 @@ func TestHandleLogs(t *testing.T) {
 			secret:             testSecret,
 			expectedStatusCode: http.StatusUnauthorized,
 			logExpected:        false,
+			addSignature:       false,
 		},
 		{
 			name:               "invalid signature",
@@ -321,6 +317,7 @@ func TestHandleLogs(t *testing.T) {
 			secret:             testSecret,
 			expectedStatusCode: http.StatusUnauthorized,
 			logExpected:        false,
+			addSignature:       true, // but add wrong signature
 		},
 		{
 			name:               "invalid JSON payload",
@@ -343,6 +340,7 @@ func TestHandleLogs(t *testing.T) {
 			secret:             testSecret,
 			expectedStatusCode: http.StatusOK,
 			logExpected:        true,
+			addSignature:       true,
 		},
 		{
 			name:               "consumer fails",
@@ -399,8 +397,14 @@ func TestHandleLogs(t *testing.T) {
 			body := io.NopCloser(bytes.NewBufferString(tc.payload))
 			req := httptest.NewRequest(http.MethodPost, "http://localhost/logs", body)
 
-			if tc.hasSecret && tc.secret != "" {
-				signature := createSignature([]byte(tc.secret), []byte(tc.payload))
+			if tc.addSignature && tc.secret != "" {
+				var signature string
+				if tc.name == "invalid signature" {
+					// For invalid signature test, use wrong secret
+					signature = createSignature([]byte("wrong-secret"), []byte(tc.payload))
+				} else {
+					signature = createSignature([]byte(tc.secret), []byte(tc.payload))
+				}
 				req.Header.Set(xVercelSignatureHeader, signature)
 			}
 

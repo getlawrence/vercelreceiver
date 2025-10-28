@@ -11,6 +11,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver"
@@ -123,6 +124,15 @@ func (r *webAnalyticsReceiver) handleWebAnalytics(w http.ResponseWriter, req *ht
 	}
 	req.Body.Close()
 
+	// Verify signature if secret is configured (for tests that call handler directly)
+	if r.server.cfg.WebAnalytics.Secret != "" {
+		if err := verifyRequest(req, r.server.cfg.WebAnalytics.Secret, bodyBytes); err != nil {
+			r.logger.Warn("Signature verification failed", zap.Error(err))
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	var events []webAnalyticsEvent
 
 	// Try parsing as JSON array first
@@ -148,7 +158,13 @@ func (r *webAnalyticsReceiver) handleWebAnalytics(w http.ResponseWriter, req *ht
 	if err := r.consumer.ConsumeLogs(obsCtx, pLogs); err != nil {
 		r.obsrecv.EndLogsOp(obsCtx, Type.String(), pLogs.LogRecordCount(), err)
 		r.logger.Error("Failed to consume web analytics data", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+
+		// Check if it's a permanent error (should return 400)
+		if consumererror.IsPermanent(err) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+		} else {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 

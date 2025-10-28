@@ -1,7 +1,3 @@
-// Copyright The OpenTelemetry Authors
-
-// SPDX-License-Identifier: Apache-2.0
-
 package vercelreceiver
 
 import (
@@ -307,6 +303,7 @@ func TestHandleWebAnalytics(t *testing.T) {
 		permanentFailure   bool
 		expectedStatusCode int
 		logExpected        bool
+		addSignature       bool // whether to actually add signature to request
 	}{
 		{
 			name:               "missing signature with secret",
@@ -314,6 +311,7 @@ func TestHandleWebAnalytics(t *testing.T) {
 			hasSecret:          true,
 			expectedStatusCode: http.StatusUnauthorized,
 			logExpected:        false,
+			addSignature:       false, // Don't add signature even though hasSecret is true
 		},
 		{
 			name:               "invalid JSON payload",
@@ -365,7 +363,13 @@ func TestHandleWebAnalytics(t *testing.T) {
 			cfg := &Config{
 				WebAnalytics: WebAnalyticsConfig{
 					Endpoint: "localhost:0",
-					Secret:   func() string { if tc.hasSecret { return testSecret } else { return "" } }(),
+					Secret: func() string {
+						if tc.hasSecret {
+							return testSecret
+						} else {
+							return ""
+						}
+					}(),
 				},
 			}
 
@@ -375,7 +379,7 @@ func TestHandleWebAnalytics(t *testing.T) {
 			body := io.NopCloser(bytes.NewBufferString(tc.payload))
 			req := httptest.NewRequest(http.MethodPost, "http://localhost/analytics", body)
 
-			if tc.hasSecret {
+			if tc.addSignature {
 				signature := createSignature([]byte(testSecret), []byte(tc.payload))
 				req.Header.Set(xVercelSignatureHeader, signature)
 			}

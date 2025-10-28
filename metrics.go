@@ -12,6 +12,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
@@ -119,6 +120,15 @@ func (r *speedInsightsReceiver) handleSpeedInsights(w http.ResponseWriter, req *
 	}
 	req.Body.Close()
 
+	// Verify signature if secret is configured (for tests that call handler directly)
+	if r.server.cfg.SpeedInsights.Secret != "" {
+		if err := verifyRequest(req, r.server.cfg.SpeedInsights.Secret, bodyBytes); err != nil {
+			r.logger.Warn("Signature verification failed", zap.Error(err))
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	var insights []speedInsight
 
 	// Try parsing as JSON array first
@@ -145,7 +155,13 @@ func (r *speedInsightsReceiver) handleSpeedInsights(w http.ResponseWriter, req *
 		dataPointCount := pMetrics.DataPointCount()
 		r.obsrecv.EndMetricsOp(obsCtx, Type.String(), dataPointCount, err)
 		r.logger.Error("Failed to consume metrics", zap.Error(err))
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+
+		// Check if it's a permanent error (should return 400)
+		if consumererror.IsPermanent(err) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+		} else {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -158,16 +174,21 @@ func (r *speedInsightsReceiver) handleSpeedInsights(w http.ResponseWriter, req *
 func convertSpeedInsightsToPdata(insights []speedInsight) pmetric.Metrics {
 	metrics := pmetric.NewMetrics()
 
-	// Group metrics by type to create proper metric streams
+	// Group by resource attributes first
+	rmMap := make(map[string]pmetric.ResourceMetrics)
 	metricMap := make(map[string]pmetric.Metric)
 
 	for _, insight := range insights {
-		metricName := fmt.Sprintf("vercel.speed_insights.%s", insight.MetricType)
+		// Create resource key from attributes that define the resource
+		resourceKey := fmt.Sprintf("%s|%s|%d|%s|%s|%s|%s|%s|%s|%s|%s",
+			insight.ProjectID, insight.OwnerID, insight.DeviceID, insight.Origin,
+			insight.Country, insight.Region, insight.City, insight.OSName,
+			insight.ClientName, insight.DeviceType, insight.DeploymentID)
 
-		// Get or create metric
-		metric, exists := metricMap[metricName]
+		// Get or create ResourceMetrics
+		rm, exists := rmMap[resourceKey]
 		if !exists {
-			rm := metrics.ResourceMetrics().AppendEmpty()
+			rm = metrics.ResourceMetrics().AppendEmpty()
 
 			// Add resource attributes
 			res := rm.Resource()
@@ -205,13 +226,29 @@ func convertSpeedInsightsToPdata(insights []speedInsight) pmetric.Metrics {
 				res.Attributes().PutStr("deployment.id", insight.DeploymentID)
 			}
 
-			sm := rm.ScopeMetrics().AppendEmpty()
+			rmMap[resourceKey] = rm
+		}
+
+		// Get or create metric within this resource metrics
+		metricName := fmt.Sprintf("vercel.speed_insights.%s", insight.MetricType)
+		fullMetricKey := fmt.Sprintf("%s|%s", resourceKey, metricName)
+
+		metric, exists := metricMap[fullMetricKey]
+		if !exists {
+			// Get or create scope metrics for this resource
+			var sm pmetric.ScopeMetrics
+			if rm.ScopeMetrics().Len() == 0 {
+				sm = rm.ScopeMetrics().AppendEmpty()
+			} else {
+				sm = rm.ScopeMetrics().At(0)
+			}
+
 			metric = sm.Metrics().AppendEmpty()
 			metric.SetName(metricName)
 			metric.SetDescription(fmt.Sprintf("Vercel Speed Insights metric: %s", insight.MetricType))
 			metric.SetUnit(metricTypeToUnit(insight.MetricType))
 
-			metricMap[metricName] = metric
+			metricMap[fullMetricKey] = metric
 		}
 
 		// Create gauge data point

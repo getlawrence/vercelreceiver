@@ -1,7 +1,3 @@
-// Copyright The OpenTelemetry Authors
-
-// SPDX-License-Identifier: Apache-2.0
-
 package vercelreceiver
 
 import (
@@ -312,6 +308,7 @@ func TestHandleSpeedInsights(t *testing.T) {
 		permanentFailure   bool
 		expectedStatusCode int
 		metricExpected     bool
+		addSignature       bool // whether to actually add signature to request
 	}{
 		{
 			name:               "missing signature with secret",
@@ -319,6 +316,7 @@ func TestHandleSpeedInsights(t *testing.T) {
 			hasSecret:          true,
 			expectedStatusCode: http.StatusUnauthorized,
 			metricExpected:     false,
+			addSignature:       false, // Don't add signature even though hasSecret is true
 		},
 		{
 			name:               "invalid JSON payload",
@@ -367,10 +365,14 @@ func TestHandleSpeedInsights(t *testing.T) {
 				consumer = sink
 			}
 
+			secret := ""
+			if tc.hasSecret {
+				secret = testSecret
+			}
 			cfg := &Config{
 				SpeedInsights: SpeedInsightsConfig{
 					Endpoint: "localhost:0",
-					Secret:   "",
+					Secret:   secret,
 				},
 			}
 
@@ -380,7 +382,7 @@ func TestHandleSpeedInsights(t *testing.T) {
 			body := io.NopCloser(bytes.NewBufferString(tc.payload))
 			req := httptest.NewRequest(http.MethodPost, "http://localhost/speed-insights", body)
 
-			if tc.hasSecret {
+			if tc.addSignature {
 				signature := createSignature([]byte(testSecret), []byte(tc.payload))
 				req.Header.Set(xVercelSignatureHeader, signature)
 			}

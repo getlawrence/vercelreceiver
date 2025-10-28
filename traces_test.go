@@ -1,7 +1,3 @@
-// Copyright The OpenTelemetry Authors
-
-// SPDX-License-Identifier: Apache-2.0
-
 package vercelreceiver
 
 import (
@@ -33,6 +29,7 @@ func TestHandleTraces(t *testing.T) {
 		expectedStatus   int
 		tracesExpected   bool
 		isJSON           bool
+		addSignature     bool // whether to actually add signature to request
 	}{
 		{
 			name:           "missing signature with secret",
@@ -42,6 +39,7 @@ func TestHandleTraces(t *testing.T) {
 			expectedStatus: http.StatusUnauthorized,
 			tracesExpected: false,
 			isJSON:         true,
+			addSignature:   false, // Don't add signature even though hasSecret is true
 		},
 		{
 			name:           "invalid JSON payload",
@@ -54,7 +52,7 @@ func TestHandleTraces(t *testing.T) {
 		},
 		{
 			name:           "valid JSON request",
-			payload:        `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"vercel-function"}}]},"scopeSpans":[{"scope":{"name":"vercel"},"spans":[{"traceId":"7bba9f33312b3dbb8b2c2c62bb7abe2d","spanId":"086e83747d0e381e","name":"GET /api/users","kind":"server","startTimeUnixNano":"1694723400000000000","endTimeUnixNano":"1694723400150000000"}]}]}]}`,
+			payload:        `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"vercel-function"}}]},"scopeSpans":[{"scope":{"name":"vercel"},"spans":[{"traceId":"7bba9f33312b3dbb8b2c2c62bb7abe2d","spanId":"086e83747d0e381e","name":"GET /api/users","kind":2,"startTimeUnixNano":"1694723400000000000","endTimeUnixNano":"1694723400150000000"}]}]}]}`,
 			contentType:    "application/json",
 			hasSecret:      false,
 			expectedStatus: http.StatusOK,
@@ -63,12 +61,13 @@ func TestHandleTraces(t *testing.T) {
 		},
 		{
 			name:           "valid JSON request with signature",
-			payload:        `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"vercel-function"}}]},"scopeSpans":[{"scope":{"name":"vercel"},"spans":[{"traceId":"7bba9f33312b3dbb8b2c2c62bb7abe2d","spanId":"086e83747d0e381e","name":"GET /api/users","kind":"server","startTimeUnixNano":"1694723400000000000","endTimeUnixNano":"1694723400150000000"}]}]}]}`,
+			payload:        `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"vercel-function"}}]},"scopeSpans":[{"scope":{"name":"vercel"},"spans":[{"traceId":"7bba9f33312b3dbb8b2c2c62bb7abe2d","spanId":"086e83747d0e381e","name":"GET /api/users","kind":2,"startTimeUnixNano":"1694723400000000000","endTimeUnixNano":"1694723400150000000"}]}]}]}`,
 			contentType:    "application/json",
 			hasSecret:      true,
 			expectedStatus: http.StatusOK,
 			tracesExpected: true,
 			isJSON:         true,
+			addSignature:   true, // Add signature for valid request
 		},
 		{
 			name:           "invalid protobuf payload",
@@ -126,10 +125,14 @@ func TestHandleTraces(t *testing.T) {
 				nextConsumer = sink
 			}
 
+			secret := ""
+			if tc.hasSecret {
+				secret = testSecret
+			}
 			cfg := &Config{
 				Traces: TracesConfig{
 					Endpoint: "localhost:0",
-					Secret:   "",
+					Secret:   secret,
 				},
 			}
 
@@ -141,7 +144,7 @@ func TestHandleTraces(t *testing.T) {
 
 			req.Header.Set("Content-Type", tc.contentType)
 
-			if tc.hasSecret {
+			if tc.addSignature {
 				signature := createSignature([]byte(testSecret), []byte(tc.payload))
 				req.Header.Set(xVercelSignatureHeader, signature)
 			}
@@ -181,7 +184,7 @@ func TestHandleTracesWithJSONFormat(t *testing.T) {
 		recv := newTestTracesReceiverForTest(t, cfg, sink)
 
 		// Sample JSON trace from testdata
-		payload := `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"vercel-function"}}]},"scopeSpans":[{"scope":{"name":"vercel"},"spans":[{"traceId":"7bba9f33312b3dbb8b2c2c62bb7abe2d","spanId":"086e83747d0e381e","name":"GET /api/users","kind":"server","startTimeUnixNano":"1694723400000000000","endTimeUnixNano":"1694723400150000000"}]}]}]}`
+		payload := `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"vercel-function"}}]},"scopeSpans":[{"scope":{"name":"vercel"},"spans":[{"traceId":"7bba9f33312b3dbb8b2c2c62bb7abe2d","spanId":"086e83747d0e381e","name":"GET /api/users","kind":2,"startTimeUnixNano":"1694723400000000000","endTimeUnixNano":"1694723400150000000"}]}]}]}`
 
 		body := io.NopCloser(bytes.NewBufferString(payload))
 		req := httptest.NewRequest(http.MethodPost, "http://localhost/traces", body)
