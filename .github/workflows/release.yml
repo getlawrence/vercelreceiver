@@ -94,7 +94,7 @@ jobs:
         
         # Update the module version to match the tag
         TAG_VERSION=${GITHUB_REF#refs/tags/}
-        go mod edit -module=github.com/getlawrence/vercelreceiver@$TAG_VERSION
+        go mod edit -module=github.com/getlawrence/vercelreceiver
         
         # Initialize git repository for the package
         git init
