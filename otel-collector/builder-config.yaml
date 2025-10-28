@@ -1,0 +1,12 @@
+dist:
+  name: otelcol-vercel
+  description: OpenTelemetry Collector with Vercel Receiver
+  output_path: ./dist
+  otelcol_version: v0.138.0
+
+receivers:
+  - gomod: github.com/getlawrence/vercelreceiver v0.1.0
+    path: ../  # Use local source code
+
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.138.0

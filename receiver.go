@@ -36,75 +36,86 @@ type vercelReceiver struct {
 	wg     *sync.WaitGroup
 }
 
-// newVercelReceiver creates a new unified Vercel receiver
+// newVercelReceiver creates a new unified Vercel receiver.
+// Consumers are registered separately using Register methods.
 func newVercelReceiver(
 	params receiver.Settings,
 	cfg *Config,
-	logsConsumer consumer.Logs,
-	tracesConsumer consumer.Traces,
-	metricsConsumer consumer.Metrics,
-) (*vercelReceiver, error) {
+) *vercelReceiver {
 	r := &vercelReceiver{
-		logger:          params.Logger,
-		cfg:             cfg,
-		logsConsumer:    logsConsumer,
-		tracesConsumer:  tracesConsumer,
-		metricsConsumer: metricsConsumer,
-		wg:              &sync.WaitGroup{},
+		logger: params.Logger,
+		cfg:    cfg,
+		wg:     &sync.WaitGroup{},
 	}
 
-	// Create ObsReport for each signal type if consumer is provided
-	if logsConsumer != nil {
+	// Create HTTP server
+	r.server = newHTTPServer(cfg, params.Logger)
+
+	return r
+}
+
+// RegisterLogsConsumer sets the logs consumer
+func (r *vercelReceiver) RegisterLogsConsumer(lc consumer.Logs, params receiver.Settings) error {
+	r.logsConsumer = lc
+	r.server.logsHandler = r.handleLogs
+	r.server.analyticsHandler = r.handleWebAnalytics
+
+	// Create logs obsrecv if not already created
+	if r.logsObsrecv == nil {
 		obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
 			ReceiverID:             params.ID,
 			Transport:              "http",
 			ReceiverCreateSettings: params,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 		r.logsObsrecv = obsrecv
 	}
 
-	if tracesConsumer != nil {
+	return nil
+}
+
+// RegisterTracesConsumer sets the traces consumer
+func (r *vercelReceiver) RegisterTracesConsumer(tc consumer.Traces, params receiver.Settings) error {
+	r.tracesConsumer = tc
+	r.server.tracesHandler = r.handleTraces
+
+	// Create traces obsrecv if not already created
+	if r.tracesObsrecv == nil {
 		obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
 			ReceiverID:             params.ID,
 			Transport:              "http",
 			ReceiverCreateSettings: params,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 		r.tracesObsrecv = obsrecv
 	}
 
-	if metricsConsumer != nil {
+	return nil
+}
+
+// RegisterMetricsConsumer sets the metrics consumer
+func (r *vercelReceiver) RegisterMetricsConsumer(mc consumer.Metrics, params receiver.Settings) error {
+	r.metricsConsumer = mc
+	r.server.speedInsightsHandler = r.handleSpeedInsights
+
+	// Create metrics obsrecv if not already created
+	if r.metricsObsrecv == nil {
 		obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
 			ReceiverID:             params.ID,
 			Transport:              "http",
 			ReceiverCreateSettings: params,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 		r.metricsObsrecv = obsrecv
 	}
 
-	// Create HTTP server with handlers
-	server := newHTTPServer(cfg, params.Logger)
-	if logsConsumer != nil {
-		server.logsHandler = r.handleLogs
-		server.analyticsHandler = r.handleWebAnalytics
-	}
-	if tracesConsumer != nil {
-		server.tracesHandler = r.handleTraces
-	}
-	if metricsConsumer != nil {
-		server.speedInsightsHandler = r.handleSpeedInsights
-	}
-	r.server = server
-
-	return r, nil
+	return nil
 }
 
 // Start starts the receiver

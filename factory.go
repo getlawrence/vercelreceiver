@@ -2,44 +2,13 @@ package vercelreceiver
 
 import (
 	"context"
-	"sync"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
-	"go.opentelemetry.io/collector/receiver/receiverhelper"
 )
 
-// sharedReceivers manages shared receiver instances across signal types.
-// This is necessary because the receiver.Factory is asked for trace, log, and metric receivers separately
-// when it calls createLogsReceiver(), createTracesReceiver(), and createMetricsReceiver() but they must not
-// create separate objects - they must use one vercelReceiver object per configuration.
-type sharedReceivers struct {
-	mu        sync.Mutex
-	receivers map[component.ID]*vercelReceiver
-}
-
-func newSharedReceivers() *sharedReceivers {
-	return &sharedReceivers{
-		receivers: make(map[component.ID]*vercelReceiver),
-	}
-}
-
-// GetOrAdd returns an existing receiver or creates a new one using the provided factory function.
-func (s *sharedReceivers) GetOrAdd(id component.ID, create func() *vercelReceiver) *vercelReceiver {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if r, exists := s.receivers[id]; exists {
-		return r
-	}
-
-	r := create()
-	s.receivers[id] = r
-	return r
-}
-
-var receivers = newSharedReceivers()
+var receivers = NewSharedComponents()
 
 func NewFactory() receiver.Factory {
 	return receiver.NewFactory(
@@ -52,7 +21,7 @@ func NewFactory() receiver.Factory {
 }
 
 func createLogsReceiver(
-	_ context.Context,
+	ctx context.Context,
 	params receiver.Settings,
 	rConf component.Config,
 	consumer consumer.Logs,
@@ -64,31 +33,19 @@ func createLogsReceiver(
 		return nil, err
 	}
 
-	r := getOrCreateReceiver(params, cfg)
-	r.logsConsumer = consumer
+	r := receivers.GetOrAdd(cfg, func() component.Component {
+		return newVercelReceiver(params, cfg)
+	})
 
-	// Create logs obsrecv if not already created
-	if r.logsObsrecv == nil {
-		obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
-			ReceiverID:             params.ID,
-			Transport:              "http",
-			ReceiverCreateSettings: params,
-		})
-		if err != nil {
-			return nil, err
-		}
-		r.logsObsrecv = obsrecv
+	if err := r.Unwrap().(*vercelReceiver).RegisterLogsConsumer(consumer, params); err != nil {
+		return nil, err
 	}
-
-	// Update server handlers
-	r.server.logsHandler = r.handleLogs
-	r.server.analyticsHandler = r.handleWebAnalytics
 
 	return r, nil
 }
 
 func createTracesReceiver(
-	_ context.Context,
+	ctx context.Context,
 	params receiver.Settings,
 	rConf component.Config,
 	consumer consumer.Traces,
@@ -100,30 +57,19 @@ func createTracesReceiver(
 		return nil, err
 	}
 
-	r := getOrCreateReceiver(params, cfg)
-	r.tracesConsumer = consumer
+	r := receivers.GetOrAdd(cfg, func() component.Component {
+		return newVercelReceiver(params, cfg)
+	})
 
-	// Create traces obsrecv if not already created
-	if r.tracesObsrecv == nil {
-		obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
-			ReceiverID:             params.ID,
-			Transport:              "http",
-			ReceiverCreateSettings: params,
-		})
-		if err != nil {
-			return nil, err
-		}
-		r.tracesObsrecv = obsrecv
+	if err := r.Unwrap().(*vercelReceiver).RegisterTracesConsumer(consumer, params); err != nil {
+		return nil, err
 	}
-
-	// Update server handlers
-	r.server.tracesHandler = r.handleTraces
 
 	return r, nil
 }
 
 func createMetricsReceiver(
-	_ context.Context,
+	ctx context.Context,
 	params receiver.Settings,
 	rConf component.Config,
 	consumer consumer.Metrics,
@@ -135,38 +81,15 @@ func createMetricsReceiver(
 		return nil, err
 	}
 
-	r := getOrCreateReceiver(params, cfg)
-	r.metricsConsumer = consumer
+	r := receivers.GetOrAdd(cfg, func() component.Component {
+		return newVercelReceiver(params, cfg)
+	})
 
-	// Create metrics obsrecv if not already created
-	if r.metricsObsrecv == nil {
-		obsrecv, err := receiverhelper.NewObsReport(receiverhelper.ObsReportSettings{
-			ReceiverID:             params.ID,
-			Transport:              "http",
-			ReceiverCreateSettings: params,
-		})
-		if err != nil {
-			return nil, err
-		}
-		r.metricsObsrecv = obsrecv
+	if err := r.Unwrap().(*vercelReceiver).RegisterMetricsConsumer(consumer, params); err != nil {
+		return nil, err
 	}
 
-	// Update server handlers
-	r.server.speedInsightsHandler = r.handleSpeedInsights
-
 	return r, nil
-}
-
-// getOrCreateReceiver returns an existing receiver or creates a new one using GetOrAdd
-func getOrCreateReceiver(params receiver.Settings, cfg *Config) *vercelReceiver {
-	return receivers.GetOrAdd(params.ID, func() *vercelReceiver {
-		return &vercelReceiver{
-			logger: params.Logger,
-			cfg:    cfg,
-			wg:     &sync.WaitGroup{},
-			server: newHTTPServer(cfg, params.Logger),
-		}
-	})
 }
 
 func createDefaultConfig() component.Config {

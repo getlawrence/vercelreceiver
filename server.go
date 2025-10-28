@@ -96,8 +96,7 @@ func (s *httpServer) start() error {
 	defer s.mu.Unlock()
 
 	if s.httpServer != nil {
-		// Server already started, just register new handlers
-		s.registerHandlers()
+		// Server already started
 		return nil
 	}
 

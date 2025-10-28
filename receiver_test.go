@@ -432,7 +432,8 @@ func newTestLogsReceiverForTest(t *testing.T, cfg *Config, nextConsumer consumer
 	set := receivertest.NewNopSettings(Type)
 	set.Logger = zaptest.NewLogger(t)
 
-	r, err := newVercelReceiver(set, cfg, nextConsumer, nil, nil)
+	r := newVercelReceiver(set, cfg)
+	err := r.RegisterLogsConsumer(nextConsumer, set)
 	require.NoError(t, err)
 	return r
 }
@@ -650,7 +651,8 @@ func newTestTracesReceiverForTest(t *testing.T, cfg *Config, nextConsumer consum
 	set := receivertest.NewNopSettings(Type)
 	set.Logger = zaptest.NewLogger(t)
 
-	r, err := newVercelReceiver(set, cfg, nil, nextConsumer, nil)
+	r := newVercelReceiver(set, cfg)
+	err := r.RegisterTracesConsumer(nextConsumer, set)
 	require.NoError(t, err)
 	return r
 }
@@ -1043,7 +1045,8 @@ func newTestSpeedInsightsReceiver(t *testing.T, cfg *Config, nextConsumer consum
 	set := receivertest.NewNopSettings(Type)
 	set.Logger = zaptest.NewLogger(t)
 
-	r, err := newVercelReceiver(set, cfg, nil, nil, nextConsumer)
+	r := newVercelReceiver(set, cfg)
+	err := r.RegisterMetricsConsumer(nextConsumer, set)
 	require.NoError(t, err)
 	return r
 }
@@ -1433,7 +1436,8 @@ func newTestWebAnalyticsReceiverForTest(t *testing.T, cfg *Config, nextConsumer 
 	set := receivertest.NewNopSettings(Type)
 	set.Logger = zaptest.NewLogger(t)
 
-	r, err := newVercelReceiver(set, cfg, nextConsumer, nil, nil)
+	r := newVercelReceiver(set, cfg)
+	err := r.RegisterLogsConsumer(nextConsumer, set)
 	require.NoError(t, err)
 	return r
 }
