@@ -33,16 +33,9 @@ func createLogsReceiver(
 		return nil, err
 	}
 
-	var err error
 	r := receivers.GetOrAdd(cfg, func() component.Component {
-		dd, createErr := newVercelReceiver(params, cfg)
-		err = createErr
-		return dd
+		return newVercelReceiver(params, cfg)
 	})
-
-	if err != nil {
-		return nil, err
-	}
 
 	if err := r.Unwrap().(*vercelReceiver).RegisterLogsConsumer(consumer, params); err != nil {
 		return nil, err
@@ -64,16 +57,9 @@ func createTracesReceiver(
 		return nil, err
 	}
 
-	var err error
 	r := receivers.GetOrAdd(cfg, func() component.Component {
-		dd, createErr := newVercelReceiver(params, cfg)
-		err = createErr
-		return dd
+		return newVercelReceiver(params, cfg)
 	})
-
-	if err != nil {
-		return nil, err
-	}
 
 	if err := r.Unwrap().(*vercelReceiver).RegisterTracesConsumer(consumer, params); err != nil {
 		return nil, err
@@ -95,16 +81,9 @@ func createMetricsReceiver(
 		return nil, err
 	}
 
-	var err error
 	r := receivers.GetOrAdd(cfg, func() component.Component {
-		dd, createErr := newVercelReceiver(params, cfg)
-		err = createErr
-		return dd
+		return newVercelReceiver(params, cfg)
 	})
-
-	if err != nil {
-		return nil, err
-	}
 
 	if err := r.Unwrap().(*vercelReceiver).RegisterMetricsConsumer(consumer, params); err != nil {
 		return nil, err

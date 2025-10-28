@@ -66,13 +66,6 @@ func (s *httpServer) registerHandlers() {
 	})
 }
 
-// isStarted returns true if the server has already been started
-func (s *httpServer) isStarted() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.httpServer != nil
-}
-
 // withSignatureAuth wraps a handler with signature verification middleware
 func (s *httpServer) withSignatureAuth(secret string, handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

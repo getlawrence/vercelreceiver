@@ -41,7 +41,7 @@ type vercelReceiver struct {
 func newVercelReceiver(
 	params receiver.Settings,
 	cfg *Config,
-) (*vercelReceiver, error) {
+) *vercelReceiver {
 	r := &vercelReceiver{
 		logger: params.Logger,
 		cfg:    cfg,
@@ -51,7 +51,7 @@ func newVercelReceiver(
 	// Create HTTP server
 	r.server = newHTTPServer(cfg, params.Logger)
 
-	return r, nil
+	return r
 }
 
 // RegisterLogsConsumer sets the logs consumer
