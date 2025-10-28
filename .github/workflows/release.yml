@@ -75,7 +75,7 @@ jobs:
         generate_release_notes: true
         draft: false
         prerelease: false
-
+        
   publish-module:
     name: Publish Go Module
     runs-on: ubuntu-latest
