@@ -76,36 +76,6 @@ jobs:
         draft: false
         prerelease: false
         
-    - name: Publish to Go Package Registry
-      run: |
-        # Configure git for Go modules
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        
-        # Create a temporary directory for the Go module
-        mkdir -p /tmp/go-package
-        
-        # Copy the module files
-        cp go.mod go.sum /tmp/go-package/
-        cp -r *.go /tmp/go-package/
-        cp -r testdata /tmp/go-package/ 2>/dev/null || true
-        
-        cd /tmp/go-package
-        
-        # Update the module version to match the tag
-        TAG_VERSION=${GITHUB_REF#refs/tags/}
-        go mod edit -module=github.com/getlawrence/vercelreceiver
-        
-        # Initialize git repository for the package
-        git init
-        git add .
-        git commit -m "Release $TAG_VERSION"
-        git tag $TAG_VERSION
-        
-        # Push to GitHub (this will make it available via go get)
-        git remote add origin https://github.com/getlawrence/vercelreceiver.git
-        git push origin $TAG_VERSION --force
-        
     - name: Verify Go Package Installation
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/}
