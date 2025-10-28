@@ -75,4 +75,99 @@ jobs:
         generate_release_notes: true
         draft: false
         prerelease: false
+
+  publish-module:
+    name: Publish Go Module
+    runs-on: ubuntu-latest
+    needs: release
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
+      
+    - name: Run tests
+      run: go test -v -race ./...
+      
+    - name: Run integration tests
+      run: go test -v -tags=integration ./...
+      
+    - name: Tidy module
+      run: go mod tidy
+      
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+    - name: Verify tag format
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "Error: Tag $VERSION does not follow semantic versioning format (v1.2.3 or v1.2.3-beta)"
+          exit 1
+        fi
+        echo "Tag format is valid: $VERSION"
+        
+    - name: Check if module is already published
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Checking if module version $VERSION is already published..."
+        if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+          echo "Module version $VERSION is already published. Skipping publication."
+          exit 0
+        else
+          echo "Module version $VERSION is not published yet. Proceeding with publication."
+        fi
+        
+    - name: Publish module to pkg.go.dev
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Publishing module version $VERSION to pkg.go.dev..."
+        
+        # Set GOPROXY to ensure we reach the proxy
+        export GOPROXY=proxy.golang.org
+        
+        # Trigger module indexing by listing the module
+        go list -m github.com/getlawrence/vercelreceiver@$VERSION
+        
+        echo "Module publication triggered successfully!"
+        echo "The module will be available at: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+        echo "Note: It may take a few minutes for the module to appear on pkg.go.dev"
+        
+    - name: Verify module publication
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Waiting for module to be indexed..."
+        
+        # Wait up to 5 minutes for the module to be indexed
+        for i in {1..30}; do
+          if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+            echo "✅ Module successfully published and indexed!"
+            echo "📦 Module URL: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+            break
+          else
+            echo "⏳ Waiting for module to be indexed... (attempt $i/30)"
+            sleep 10
+          fi
+        done
+        
+        # Final verification
+        if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+          echo "✅ Final verification: Module is published and accessible"
+        else
+          echo "⚠️  Module publication may still be in progress. Check https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+        fi
         

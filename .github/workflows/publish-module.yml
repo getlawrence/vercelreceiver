@@ -1,0 +1,172 @@
+name: Publish Go Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to publish (e.g., v1.0.0)'
+        required: true
+        type: string
+      force:
+        description: 'Force publish even if already published'
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    name: Publish Go Module to pkg.go.dev
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        cache: true
+        
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
+      
+    - name: Run tests
+      run: go test -v -race ./...
+      
+    - name: Run integration tests
+      run: go test -v -tags=integration ./...
+      
+    - name: Tidy module
+      run: go mod tidy
+      
+    - name: Get version
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Using version: $VERSION"
+        
+    - name: Verify tag format
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "Error: Version $VERSION does not follow semantic versioning format (v1.2.3 or v1.2.3-beta)"
+          exit 1
+        fi
+        echo "Version format is valid: $VERSION"
+        
+    - name: Check if module is already published
+      if: ${{ github.event.inputs.force != 'true' }}
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Checking if module version $VERSION is already published..."
+        if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+          echo "Module version $VERSION is already published. Use 'force' option to republish."
+          exit 1
+        else
+          echo "Module version $VERSION is not published yet. Proceeding with publication."
+        fi
+        
+    - name: Check if module is already published (force mode)
+      if: ${{ github.event.inputs.force == 'true' }}
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Force mode enabled. Checking if module version $VERSION exists..."
+        if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+          echo "⚠️  Module version $VERSION is already published, but force mode is enabled."
+        else
+          echo "Module version $VERSION is not published yet."
+        fi
+        
+    - name: Verify tag exists in repository
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Verifying that tag $VERSION exists in the repository..."
+        if ! git tag -l | grep -q "^$VERSION$"; then
+          echo "Error: Tag $VERSION does not exist in the repository."
+          echo "Available tags:"
+          git tag -l
+          exit 1
+        fi
+        echo "✅ Tag $VERSION exists in repository"
+        
+    - name: Checkout specific tag
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Checking out tag $VERSION..."
+        git checkout $VERSION
+        
+    - name: Publish module to pkg.go.dev
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Publishing module version $VERSION to pkg.go.dev..."
+        
+        # Set GOPROXY to ensure we reach the proxy
+        export GOPROXY=proxy.golang.org
+        
+        # Trigger module indexing by listing the module
+        go list -m github.com/getlawrence/vercelreceiver@$VERSION
+        
+        echo "✅ Module publication triggered successfully!"
+        echo "📦 Module URL: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+        echo "📚 Documentation: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+        echo "Note: It may take a few minutes for the module to appear on pkg.go.dev"
+        
+    - name: Verify module publication
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "Waiting for module to be indexed..."
+        
+        # Wait up to 5 minutes for the module to be indexed
+        for i in {1..30}; do
+          if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+            echo "✅ Module successfully published and indexed!"
+            echo "📦 Module URL: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+            echo "📚 Documentation: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+            break
+          else
+            echo "⏳ Waiting for module to be indexed... (attempt $i/30)"
+            sleep 10
+          fi
+        done
+        
+        # Final verification
+        if go list -m github.com/getlawrence/vercelreceiver@$VERSION >/dev/null 2>&1; then
+          echo "✅ Final verification: Module is published and accessible"
+          echo "🎉 Success! Your module is now available on pkg.go.dev"
+        else
+          echo "⚠️  Module publication may still be in progress."
+          echo "🔍 Check manually: https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION"
+        fi
+        
+    - name: Create summary
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        echo "## 📦 Module Publication Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** \`$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Module URL:** [pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION](https://pkg.go.dev/github.com/getlawrence/vercelreceiver@$VERSION)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Installation:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "go get github.com/getlawrence/vercelreceiver@$VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Import:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`go" >> $GITHUB_STEP_SUMMARY
+        echo "import \"github.com/getlawrence/vercelreceiver\"" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
