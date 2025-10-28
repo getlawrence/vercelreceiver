@@ -13,7 +13,6 @@ linters-settings:
   goimports:
     local-prefixes: github.com/getlawrence/vercelreceiver
   govet:
-    check-shadowing: true
     settings:
       printf:
         funcs:
@@ -22,8 +21,6 @@ linters-settings:
           - (github.com/getlawrence/vercelreceiver/vendor/github.com/go-logr/logr.Logger).V
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
   goconst:
@@ -33,8 +30,6 @@ linters-settings:
     locale: US
   lll:
     line-length: 140
-  unused:
-    check-exported: false
   unparam:
     check-exported: false
   nakedret:
