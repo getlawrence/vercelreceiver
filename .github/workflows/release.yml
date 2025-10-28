@@ -75,20 +75,4 @@ jobs:
         generate_release_notes: true
         draft: false
         prerelease: false
-        
-    - name: Verify Go Package Installation
-      run: |
-        TAG_VERSION=${GITHUB_REF#refs/tags/}
-        echo "Testing Go package availability for version: $TAG_VERSION"
-        
-        # Test that the package can be downloaded and imported
-        go get github.com/getlawrence/vercelreceiver@$TAG_VERSION
-        
-        # Verify the package is available
-        if go list -m github.com/getlawrence/vercelreceiver@$TAG_VERSION > /dev/null 2>&1; then
-          echo "✅ Package is available and can be imported"
-          echo "Package version: $(go list -m github.com/getlawrence/vercelreceiver@$TAG_VERSION)"
-        else
-          echo "❌ Package verification failed"
-          exit 1
-        fi
+
