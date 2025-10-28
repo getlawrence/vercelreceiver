@@ -95,7 +95,7 @@ func TestValidate(t *testing.T) {
 			config: Config{
 				Endpoint: ":8080",
 			},
-			expectedErr: "invalid endpoint",
+			expectedErr: "", // Empty host is valid (means listen on all interfaces)
 		},
 		{
 			name: "Invalid endpoint - malformed",
@@ -178,7 +178,7 @@ func TestValidateEndpoint(t *testing.T) {
 		{
 			name:        "Empty host",
 			endpoint:    ":8080",
-			expectedErr: "host cannot be empty",
+			expectedErr: "", // Empty host is valid (means listen on all interfaces)
 		},
 		{
 			name:        "Empty port",
