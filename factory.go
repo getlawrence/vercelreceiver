@@ -58,12 +58,12 @@ func createLogsReceiver(
 	consumer consumer.Logs,
 ) (receiver.Logs, error) {
 	cfg := rConf.(*Config)
-	
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	r := getOrCreateReceiver(params, cfg)
 	r.logsConsumer = consumer
 
@@ -94,12 +94,12 @@ func createTracesReceiver(
 	consumer consumer.Traces,
 ) (receiver.Traces, error) {
 	cfg := rConf.(*Config)
-	
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	r := getOrCreateReceiver(params, cfg)
 	r.tracesConsumer = consumer
 
@@ -129,12 +129,12 @@ func createMetricsReceiver(
 	consumer consumer.Metrics,
 ) (receiver.Metrics, error) {
 	cfg := rConf.(*Config)
-	
+
 	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	r := getOrCreateReceiver(params, cfg)
 	r.metricsConsumer = consumer
 
