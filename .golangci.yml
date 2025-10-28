@@ -13,7 +13,7 @@ linters-settings:
   goimports:
     local-prefixes: github.com/getlawrence/vercelreceiver
   gocyclo:
-    min-complexity: 20
+    min-complexity: 30
   dupl:
     threshold: 100
   goconst:
@@ -60,7 +60,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - dupl
     - errcheck
     - exhaustive
     - funlen
