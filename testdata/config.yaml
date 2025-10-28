@@ -1,0 +1,13 @@
+vercel:
+  logs:
+    endpoint: 0.0.0.0:12345
+    secret: 1234567890abcdef1234567890abcdef
+  traces:
+    endpoint: 0.0.0.0:12346
+    secret: 1234567890abcdef1234567890abcdef
+  speed_insights:
+    endpoint: 0.0.0.0:12347
+    secret: 1234567890abcdef1234567890abcdef
+  web_analytics:
+    endpoint: 0.0.0.0:12348
+    secret: 1234567890abcdef1234567890abcdef

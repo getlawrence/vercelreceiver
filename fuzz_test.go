@@ -196,6 +196,6 @@ func FuzzVerifySignature(f *testing.F) {
 func FuzzValidateEndpoint(f *testing.F) {
 	f.Fuzz(func(t *testing.T, endpoint string) {
 		// Test endpoint validation with various inputs
-		validateEndpoint(endpoint)
+		_ = validateEndpoint(endpoint) // intentionally ignore error for fuzz testing
 	})
 }

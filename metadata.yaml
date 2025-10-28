@@ -1,0 +1,10 @@
+type: vercel
+
+status:
+  class: receiver
+  stability:
+    alpha: [logs, traces, metrics]
+  distributions: [contrib]
+  codeowners:
+    active: [mottibec]
+    seeking_new: true

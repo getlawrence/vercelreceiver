@@ -63,7 +63,7 @@ func (s *httpServer) registerHandlers() {
 	// Health check endpoint
 	s.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK")) // intentionally ignore error for simple health check
 	})
 }
 
@@ -104,8 +104,15 @@ func (s *httpServer) start() error {
 
 	// Default to port 8080 if no endpoint is configured
 	listenAddr := ":8080"
+	// Check all possible endpoints to find the one configured
 	if s.cfg.Logs.Endpoint != "" {
 		listenAddr = s.cfg.Logs.Endpoint
+	} else if s.cfg.Traces.Endpoint != "" {
+		listenAddr = s.cfg.Traces.Endpoint
+	} else if s.cfg.SpeedInsights.Endpoint != "" {
+		listenAddr = s.cfg.SpeedInsights.Endpoint
+	} else if s.cfg.WebAnalytics.Endpoint != "" {
+		listenAddr = s.cfg.WebAnalytics.Endpoint
 	}
 
 	s.httpServer = &http.Server{

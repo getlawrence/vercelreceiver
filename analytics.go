@@ -160,9 +160,9 @@ func (r *webAnalyticsReceiver) handleWebAnalytics(w http.ResponseWriter, req *ht
 func convertWebAnalyticsToPdata(events []webAnalyticsEvent) plog.Logs {
 	pLogs := plog.NewLogs()
 	rl := pLogs.ResourceLogs().AppendEmpty()
+	scopeLogs := rl.ScopeLogs().AppendEmpty()
 
 	for _, event := range events {
-		scopeLogs := rl.ScopeLogs().AppendEmpty()
 		lr := scopeLogs.LogRecords().AppendEmpty()
 
 		// Set timestamp
