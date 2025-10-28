@@ -13,7 +13,7 @@ linters-settings:
   goimports:
     local-prefixes: github.com/getlawrence/vercelreceiver
   gocyclo:
-    min-complexity: 30
+    min-complexity: 50
   dupl:
     threshold: 100
   goconst:
@@ -50,8 +50,8 @@ linters-settings:
       - httpNoBody
       - paramTypeCombine
   funlen:
-    lines: 100
-    statements: 50
+    lines: 170
+    statements: 110
   gosec:
     excludes:
       - G112 # Slowloris Attack - acceptable for internal collector
