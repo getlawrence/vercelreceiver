@@ -8,115 +8,112 @@ import (
 
 func TestValidate(t *testing.T) {
 	cases := []struct {
-		name        string
-		config      Config
-		expectedErr string
+		name           string
+		config         Config
+		expectedErr    string
+		expectedRoutes *struct {
+			logs          string
+			traces        string
+			speedInsights string
+			webAnalytics  string
+		}
 	}{
 		{
-			name: "Valid config with all endpoints",
+			name: "Valid config with endpoint",
 			config: Config{
-				Logs: LogsConfig{
-					Endpoint: "0.0.0.0:9999",
-					Secret:   "test-secret",
+				Endpoint: "0.0.0.0:9999",
+				Secret:   "test-secret",
+				Logs: SignalConfig{
+					Secret: "test-secret",
 				},
-				Traces: TracesConfig{
-					Endpoint: "0.0.0.0:9998",
-					Secret:   "test-secret",
+				Traces: SignalConfig{
+					Secret: "test-secret",
 				},
-				SpeedInsights: SpeedInsightsConfig{
-					Endpoint: "0.0.0.0:9997",
-					Secret:   "test-secret",
+				SpeedInsights: SignalConfig{
+					Secret: "test-secret",
 				},
-				WebAnalytics: WebAnalyticsConfig{
-					Endpoint: "0.0.0.0:9996",
-					Secret:   "test-secret",
+				WebAnalytics: SignalConfig{
+					Secret: "test-secret",
 				},
 			},
 		},
 		{
-			name: "Valid config with empty endpoints",
+			name: "Valid config with empty endpoint (uses default)",
 			config: Config{
-				Logs:          LogsConfig{},
-				Traces:        TracesConfig{},
-				SpeedInsights: SpeedInsightsConfig{},
-				WebAnalytics:  WebAnalyticsConfig{},
+				Logs:          SignalConfig{},
+				Traces:        SignalConfig{},
+				SpeedInsights: SignalConfig{},
+				WebAnalytics:  SignalConfig{},
 			},
 		},
 		{
-			name: "Valid config with partial endpoints",
+			name: "Valid config with custom routes",
 			config: Config{
-				Logs: LogsConfig{
-					Endpoint: "localhost:8080",
-					Secret:   "logs-secret",
+				Endpoint: "localhost:8080",
+				Logs: SignalConfig{
+					Route:  "/custom-logs",
+					Secret: "logs-secret",
 				},
-				Traces:        TracesConfig{},
-				SpeedInsights: SpeedInsightsConfig{},
-				WebAnalytics:  WebAnalyticsConfig{},
+				Traces: SignalConfig{
+					Route: "/custom-traces",
+				},
+				SpeedInsights: SignalConfig{
+					Route: "/custom-metrics",
+				},
+				WebAnalytics: SignalConfig{
+					Route: "/custom-analytics",
+				},
+			},
+			expectedRoutes: &struct {
+				logs          string
+				traces        string
+				speedInsights string
+				webAnalytics  string
+			}{
+				logs:          "/custom-logs",
+				traces:        "/custom-traces",
+				speedInsights: "/custom-metrics",
+				webAnalytics:  "/custom-analytics",
 			},
 		},
 		{
-			name: "Invalid logs endpoint - missing port",
+			name: "Invalid endpoint - missing port",
 			config: Config{
-				Logs: LogsConfig{
-					Endpoint: "localhost",
-				},
+				Endpoint: "localhost",
 			},
-			expectedErr: "logs config validation failed",
+			expectedErr: "invalid endpoint",
 		},
 		{
-			name: "Invalid traces endpoint - invalid port",
+			name: "Invalid endpoint - invalid port",
 			config: Config{
-				Traces: TracesConfig{
-					Endpoint: "localhost:99999",
-				},
+				Endpoint: "localhost:99999",
 			},
-			expectedErr: "traces config validation failed",
+			expectedErr: "invalid endpoint",
 		},
 		{
-			name: "Invalid speed insights endpoint - empty host",
+			name: "Invalid endpoint - empty host",
 			config: Config{
-				SpeedInsights: SpeedInsightsConfig{
-					Endpoint: ":8080",
-				},
+				Endpoint: ":8080",
 			},
-			expectedErr: "speed_insights config validation failed",
+			expectedErr: "invalid endpoint",
 		},
 		{
-			name: "Invalid web analytics endpoint - malformed",
+			name: "Invalid endpoint - malformed",
 			config: Config{
-				WebAnalytics: WebAnalyticsConfig{
-					Endpoint: "not-a-valid-endpoint",
-				},
+				Endpoint: "not-a-valid-endpoint",
 			},
-			expectedErr: "web_analytics config validation failed",
+			expectedErr: "invalid endpoint",
 		},
 		{
-			name: "Multiple invalid endpoints",
+			name: "Valid config with different endpoint formats",
 			config: Config{
-				Logs: LogsConfig{
-					Endpoint: "invalid",
-				},
-				Traces: TracesConfig{
-					Endpoint: "also-invalid",
-				},
+				Endpoint: "[::1]:8081",
 			},
-			expectedErr: "logs config validation failed",
 		},
 		{
-			name: "Valid config with different port formats",
+			name: "Valid config sets default routes",
 			config: Config{
-				Logs: LogsConfig{
-					Endpoint: "127.0.0.1:8080",
-				},
-				Traces: TracesConfig{
-					Endpoint: "[::1]:8081",
-				},
-				SpeedInsights: SpeedInsightsConfig{
-					Endpoint: "0.0.0.0:8082",
-				},
-				WebAnalytics: WebAnalyticsConfig{
-					Endpoint: "localhost:8083",
-				},
+				Endpoint: "localhost:8080",
 			},
 		},
 	}
@@ -128,6 +125,19 @@ func TestValidate(t *testing.T) {
 				require.ErrorContains(t, err, tc.expectedErr)
 			} else {
 				require.NoError(t, err)
+				// Verify routes are set correctly (custom or default)
+				if tc.expectedRoutes != nil {
+					require.Equal(t, tc.expectedRoutes.logs, tc.config.Logs.Route)
+					require.Equal(t, tc.expectedRoutes.traces, tc.config.Traces.Route)
+					require.Equal(t, tc.expectedRoutes.speedInsights, tc.config.SpeedInsights.Route)
+					require.Equal(t, tc.expectedRoutes.webAnalytics, tc.config.WebAnalytics.Route)
+				} else {
+					// Verify default routes are set
+					require.Equal(t, "/logs", tc.config.Logs.Route)
+					require.Equal(t, "/traces", tc.config.Traces.Route)
+					require.Equal(t, "/speed-insights", tc.config.SpeedInsights.Route)
+					require.Equal(t, "/analytics", tc.config.WebAnalytics.Route)
+				}
 			}
 		})
 	}

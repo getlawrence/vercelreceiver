@@ -49,7 +49,7 @@ func TestLogsReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
-			Logs: LogsConfig{
+			Logs: SignalConfig{
 				Endpoint: testAddr,
 				Secret:   testSecret,
 			},
@@ -126,7 +126,7 @@ func TestTracesReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
-			Traces: TracesConfig{
+			Traces: SignalConfig{
 				Endpoint: testAddr,
 				Secret:   testSecret,
 			},
@@ -185,7 +185,7 @@ func TestSpeedInsightsReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
-			SpeedInsights: SpeedInsightsConfig{
+			SpeedInsights: SignalConfig{
 				Endpoint: testAddr,
 				Secret:   testSecret,
 			},
@@ -244,7 +244,7 @@ func TestWebAnalyticsReceiverIntegration(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
-			WebAnalytics: WebAnalyticsConfig{
+			WebAnalytics: SignalConfig{
 				Endpoint: testAddr,
 				Secret:   testSecret,
 			},
@@ -304,7 +304,7 @@ func TestNoSecretValidation(t *testing.T) {
 		t.Context(),
 		receivertest.NewNopSettings(Type),
 		&Config{
-			Logs: LogsConfig{
+			Logs: SignalConfig{
 				Endpoint: testAddr,
 				Secret:   "", // No secret
 			},

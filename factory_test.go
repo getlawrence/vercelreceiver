@@ -51,10 +51,12 @@ func TestCreateDefaultConfig(t *testing.T) {
 	cfg := factory.CreateDefaultConfig()
 
 	expected := &Config{
-		Logs:          LogsConfig{},
-		Traces:        TracesConfig{},
-		SpeedInsights: SpeedInsightsConfig{},
-		WebAnalytics:  WebAnalyticsConfig{},
+		Endpoint:      ":8080",
+		Secret:        "", // Default secret (empty means no auth by default)
+		Logs:          SignalConfig{},
+		Traces:        SignalConfig{},
+		SpeedInsights: SignalConfig{},
+		WebAnalytics:  SignalConfig{},
 	}
 
 	require.Equal(t, expected, cfg)

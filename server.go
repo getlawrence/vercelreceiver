@@ -3,7 +3,6 @@ package vercelreceiver
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -42,22 +41,22 @@ func newHTTPServer(cfg *Config, logger *zap.Logger) *httpServer {
 func (s *httpServer) registerHandlers() {
 	// Logs endpoint
 	if s.logsHandler != nil {
-		s.mux.HandleFunc("/logs", s.withSignatureAuth(s.cfg.Logs.Secret, s.logsHandler))
+		s.mux.HandleFunc(s.cfg.Logs.Route, s.withSignatureAuth(s.cfg.GetLogsSecret(), s.logsHandler))
 	}
 
 	// Traces endpoint
 	if s.tracesHandler != nil {
-		s.mux.HandleFunc("/traces", s.withSignatureAuth(s.cfg.Traces.Secret, s.tracesHandler))
+		s.mux.HandleFunc(s.cfg.Traces.Route, s.withSignatureAuth(s.cfg.GetTracesSecret(), s.tracesHandler))
 	}
 
 	// Speed Insights endpoint
 	if s.speedInsightsHandler != nil {
-		s.mux.HandleFunc("/speed-insights", s.withSignatureAuth(s.cfg.SpeedInsights.Secret, s.speedInsightsHandler))
+		s.mux.HandleFunc(s.cfg.SpeedInsights.Route, s.withSignatureAuth(s.cfg.GetSpeedInsightsSecret(), s.speedInsightsHandler))
 	}
 
 	// Web Analytics endpoint
 	if s.analyticsHandler != nil {
-		s.mux.HandleFunc("/analytics", s.withSignatureAuth(s.cfg.WebAnalytics.Secret, s.analyticsHandler))
+		s.mux.HandleFunc(s.cfg.WebAnalytics.Route, s.withSignatureAuth(s.cfg.GetWebAnalyticsSecret(), s.analyticsHandler))
 	}
 
 	// Health check endpoint
@@ -96,23 +95,18 @@ func (s *httpServer) start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.registerHandlers()
-
 	if s.httpServer != nil {
-		return fmt.Errorf("server already started")
+		// Server already started, just register new handlers
+		s.registerHandlers()
+		return nil
 	}
 
-	// Default to port 8080 if no endpoint is configured
-	listenAddr := ":8080"
-	// Check all possible endpoints to find the one configured
-	if s.cfg.Logs.Endpoint != "" {
-		listenAddr = s.cfg.Logs.Endpoint
-	} else if s.cfg.Traces.Endpoint != "" {
-		listenAddr = s.cfg.Traces.Endpoint
-	} else if s.cfg.SpeedInsights.Endpoint != "" {
-		listenAddr = s.cfg.SpeedInsights.Endpoint
-	} else if s.cfg.WebAnalytics.Endpoint != "" {
-		listenAddr = s.cfg.WebAnalytics.Endpoint
+	s.registerHandlers()
+
+	// Use configured endpoint or default to :8080
+	listenAddr := s.cfg.Endpoint
+	if listenAddr == "" {
+		listenAddr = ":8080"
 	}
 
 	s.httpServer = &http.Server{

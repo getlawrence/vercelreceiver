@@ -6,91 +6,82 @@ import (
 )
 
 type Config struct {
-	Logs          LogsConfig          `mapstructure:"logs"`
-	Traces        TracesConfig        `mapstructure:"traces"`
-	SpeedInsights SpeedInsightsConfig `mapstructure:"speed_insights"`
-	WebAnalytics  WebAnalyticsConfig  `mapstructure:"web_analytics"`
+	// Single endpoint for all data types (host:port format)
+	Endpoint string `mapstructure:"endpoint"`
+
+	// Default secret for all endpoints (can be overridden per signal type)
+	Secret string `mapstructure:"secret"`
+
+	// Per-signal configuration (optional overrides for routes and secrets)
+	Logs          SignalConfig `mapstructure:"logs"`
+	Traces        SignalConfig `mapstructure:"traces"`
+	SpeedInsights SignalConfig `mapstructure:"speed_insights"`
+	WebAnalytics  SignalConfig `mapstructure:"web_analytics"`
+}
+
+// SignalConfig defines configuration for a specific signal type (logs, traces, metrics, analytics)
+// Both route and secret are optional and will use defaults if not provided
+type SignalConfig struct {
+	Route  string `mapstructure:"route"`  // Optional: Override default route
+	Secret string `mapstructure:"secret"` // Optional: Override default secret
 }
 
 // Validate validates the configuration
 func (cfg *Config) Validate() error {
-	if err := cfg.Logs.Validate(); err != nil {
-		return fmt.Errorf("logs config validation failed: %w", err)
-	}
-	if err := cfg.Traces.Validate(); err != nil {
-		return fmt.Errorf("traces config validation failed: %w", err)
-	}
-	if err := cfg.SpeedInsights.Validate(); err != nil {
-		return fmt.Errorf("speed_insights config validation failed: %w", err)
-	}
-	if err := cfg.WebAnalytics.Validate(); err != nil {
-		return fmt.Errorf("web_analytics config validation failed: %w", err)
-	}
-	return nil
-}
-
-// LogsConfig defines configuration for log drains
-type LogsConfig struct {
-	Endpoint string `mapstructure:"endpoint"`
-	Secret   string `mapstructure:"secret"`
-}
-
-// Validate validates the logs configuration
-func (cfg *LogsConfig) Validate() error {
+	// Validate endpoint if provided
 	if cfg.Endpoint != "" {
 		if err := validateEndpoint(cfg.Endpoint); err != nil {
-			return fmt.Errorf("invalid logs endpoint: %w", err)
+			return fmt.Errorf("invalid endpoint: %w", err)
 		}
 	}
+
+	// Set default routes if not provided
+	if cfg.Logs.Route == "" {
+		cfg.Logs.Route = "/logs"
+	}
+	if cfg.Traces.Route == "" {
+		cfg.Traces.Route = "/traces"
+	}
+	if cfg.SpeedInsights.Route == "" {
+		cfg.SpeedInsights.Route = "/speed-insights"
+	}
+	if cfg.WebAnalytics.Route == "" {
+		cfg.WebAnalytics.Route = "/analytics"
+	}
+
 	return nil
 }
 
-// TracesConfig defines configuration for trace drains
-type TracesConfig struct {
-	Endpoint string `mapstructure:"endpoint"`
-	Secret   string `mapstructure:"secret"`
-}
-
-// Validate validates the traces configuration
-func (cfg *TracesConfig) Validate() error {
-	if cfg.Endpoint != "" {
-		if err := validateEndpoint(cfg.Endpoint); err != nil {
-			return fmt.Errorf("invalid traces endpoint: %w", err)
-		}
+// GetLogsSecret returns the secret for logs (per-signal override or default)
+func (cfg *Config) GetLogsSecret() string {
+	if cfg.Logs.Secret != "" {
+		return cfg.Logs.Secret
 	}
-	return nil
+	return cfg.Secret
 }
 
-// SpeedInsightsConfig defines configuration for speed insights drains
-type SpeedInsightsConfig struct {
-	Endpoint string `mapstructure:"endpoint"`
-	Secret   string `mapstructure:"secret"`
-}
-
-// Validate validates the speed insights configuration
-func (cfg *SpeedInsightsConfig) Validate() error {
-	if cfg.Endpoint != "" {
-		if err := validateEndpoint(cfg.Endpoint); err != nil {
-			return fmt.Errorf("invalid speed_insights endpoint: %w", err)
-		}
+// GetTracesSecret returns the secret for traces (per-signal override or default)
+func (cfg *Config) GetTracesSecret() string {
+	if cfg.Traces.Secret != "" {
+		return cfg.Traces.Secret
 	}
-	return nil
+	return cfg.Secret
 }
 
-// WebAnalyticsConfig defines configuration for web analytics drains
-type WebAnalyticsConfig struct {
-	Endpoint string `mapstructure:"endpoint"`
-	Secret   string `mapstructure:"secret"`
-}
-
-// Validate validates the web analytics configuration
-func (cfg *WebAnalyticsConfig) Validate() error {
-	if cfg.Endpoint != "" {
-		if err := validateEndpoint(cfg.Endpoint); err != nil {
-			return fmt.Errorf("invalid web_analytics endpoint: %w", err)
-		}
+// GetSpeedInsightsSecret returns the secret for speed insights (per-signal override or default)
+func (cfg *Config) GetSpeedInsightsSecret() string {
+	if cfg.SpeedInsights.Secret != "" {
+		return cfg.SpeedInsights.Secret
 	}
-	return nil
+	return cfg.Secret
+}
+
+// GetWebAnalyticsSecret returns the secret for web analytics (per-signal override or default)
+func (cfg *Config) GetWebAnalyticsSecret() string {
+	if cfg.WebAnalytics.Secret != "" {
+		return cfg.WebAnalytics.Secret
+	}
+	return cfg.Secret
 }
 
 // validateEndpoint validates that the endpoint is in the correct host:port format

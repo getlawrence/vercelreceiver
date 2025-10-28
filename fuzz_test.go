@@ -14,10 +14,10 @@ import (
 )
 
 // Helper function to create a test receiver with logs consumer
-func newTestLogsReceiver(t *testing.T, cfg *Config) *logsReceiver {
-	consumer := &consumertest.LogsSink{}
+func newTestLogsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	logsConsumer := &consumertest.LogsSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newLogsReceiver(params, cfg, consumer)
+	r, err := newVercelReceiver(params, cfg, logsConsumer, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create logs receiver: %v", err)
 	}
@@ -25,10 +25,10 @@ func newTestLogsReceiver(t *testing.T, cfg *Config) *logsReceiver {
 }
 
 // Helper function to create a test receiver with traces consumer
-func newTestTracesReceiver(t *testing.T, cfg *Config) *tracesReceiver {
-	consumer := &consumertest.TracesSink{}
+func newTestTracesReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	tracesConsumer := &consumertest.TracesSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newTracesReceiver(params, cfg, consumer)
+	r, err := newVercelReceiver(params, cfg, nil, tracesConsumer, nil)
 	if err != nil {
 		t.Fatalf("Failed to create traces receiver: %v", err)
 	}
@@ -36,10 +36,10 @@ func newTestTracesReceiver(t *testing.T, cfg *Config) *tracesReceiver {
 }
 
 // Helper function to create a test receiver with metrics consumer
-func newTestMetricsReceiver(t *testing.T, cfg *Config) *speedInsightsReceiver {
-	consumer := &consumertest.MetricsSink{}
+func newTestMetricsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	metricsConsumer := &consumertest.MetricsSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newSpeedInsightsReceiver(params, cfg, consumer)
+	r, err := newVercelReceiver(params, cfg, nil, nil, metricsConsumer)
 	if err != nil {
 		t.Fatalf("Failed to create metrics receiver: %v", err)
 	}
@@ -47,10 +47,10 @@ func newTestMetricsReceiver(t *testing.T, cfg *Config) *speedInsightsReceiver {
 }
 
 // Helper function to create a test receiver with web analytics consumer
-func newTestWebAnalyticsReceiver(t *testing.T, cfg *Config) *webAnalyticsReceiver {
-	consumer := &consumertest.LogsSink{}
+func newTestWebAnalyticsReceiver(t *testing.T, cfg *Config) *vercelReceiver {
+	logsConsumer := &consumertest.LogsSink{}
 	params := receivertest.NewNopSettings(Type)
-	r, err := newWebAnalyticsReceiver(params, cfg, consumer)
+	r, err := newVercelReceiver(params, cfg, logsConsumer, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create web analytics receiver: %v", err)
 	}
@@ -81,9 +81,9 @@ func FuzzHandleLogs(f *testing.F) {
 		}
 
 		cfg := &Config{
-			Logs: LogsConfig{
-				Endpoint: "localhost:0",
-				Secret:   secret,
+			Endpoint: "localhost:0",
+			Logs: SignalConfig{
+				Secret: secret,
 			},
 		}
 
@@ -110,9 +110,9 @@ func FuzzHandleTraces(f *testing.F) {
 		}
 
 		cfg := &Config{
-			Traces: TracesConfig{
-				Endpoint: "localhost:0",
-				Secret:   secret,
+			Endpoint: "localhost:0",
+			Traces: SignalConfig{
+				Secret: secret,
 			},
 		}
 
@@ -139,9 +139,9 @@ func FuzzHandleSpeedInsights(f *testing.F) {
 		}
 
 		cfg := &Config{
-			SpeedInsights: SpeedInsightsConfig{
-				Endpoint: "localhost:0",
-				Secret:   secret,
+			Endpoint: "localhost:0",
+			SpeedInsights: SignalConfig{
+				Secret: secret,
 			},
 		}
 
@@ -168,9 +168,9 @@ func FuzzHandleWebAnalytics(f *testing.F) {
 		}
 
 		cfg := &Config{
-			WebAnalytics: WebAnalyticsConfig{
-				Endpoint: "localhost:0",
-				Secret:   secret,
+			Endpoint: "localhost:0",
+			WebAnalytics: SignalConfig{
+				Secret: secret,
 			},
 		}
 
