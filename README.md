@@ -13,6 +13,73 @@ This receiver accepts logs, traces, speed insights, and web analytics data from 
 - **Speed Insights**: Performance metrics and web vitals
 - **Web Analytics**: Page views and custom events
 
+## Building a Custom Collector Distribution
+
+To include this receiver in your own custom OpenTelemetry Collector distribution using the OpenTelemetry Collector Builder (OCB), follow these steps:
+
+### Prerequisites
+
+1. **Install OCB:**
+   ```bash
+   go install go.opentelemetry.io/collector/cmd/builder@latest
+   ```
+
+2. **Ensure you have Go 1.24+ installed**
+
+### Creating a Builder Configuration
+
+Create a YAML configuration file (e.g., `builder-config.yaml`) that includes the Vercel receiver:
+
+```yaml
+dist:
+  name: otelcol-custom
+  description: Custom OpenTelemetry Collector with Vercel Receiver
+  output_path: ./dist
+  otelcol_version: v0.138.0  # Match your collector version
+
+receivers:
+  # Include the Vercel receiver from the published module
+  - gomod: github.com/getlawrence/vercelreceiver v0.1.0
+  
+  # Add other receivers as needed
+  # - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.138.0
+  # - gomod: go.opentelemetry.io/collector/receiver/prometheusreceiver v0.138.0
+
+processors:
+  # Add any processors you need
+  # - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.138.0
+
+exporters:
+  # Add exporters you need
+  # - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.138.0
+  # - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.138.0
+```
+
+### Building the Collector
+
+Once you have your builder configuration:
+
+1. **Build the custom collector:**
+   ```bash
+   builder --config=builder-config.yaml
+   ```
+
+2. **The built binary will be located at:**
+   ```
+   ./dist/otelcol-custom
+   ```
+
+3. **Test your custom collector:**
+   ```bash
+   ./dist/otelcol-custom --version
+   ```
+
+### Version Compatibility
+
+Make sure to use a compatible version of the receiver that matches your OpenTelemetry Collector version. The receiver should be compatible with collector versions v0.138.0 and later. Check the [releases](https://github.com/getlawrence/vercelreceiver/releases) page for available versions.
+
+For more information about OCB, see the [OpenTelemetry Collector Builder documentation](https://github.com/open-telemetry/opentelemetry-collector/tree/main/cmd/builder).
+
 ## Configuration
 
 ### Basic Configuration
